@@ -4,7 +4,6 @@
 // This version uses camera input and emotion detection to drive particle colors
 // Requires: Processing Video library
 
-import processing.video.*;
 import oscP5.*;
 import netP5.*;
 
@@ -23,9 +22,6 @@ PGraphics xMask;
 // Font used to draw the text mask
 PFont myFont;
 
-// Camera capture
-Capture cam;
-boolean cameraAvailable = false;
 
 // Emotion detection variables
 String currentEmotion = "neutral";
@@ -51,6 +47,7 @@ float flashFadeSpeed = 0.02;
 // -----------------------------------------------------------
 
 void setup() {
+  pixelDensity(1);
   size(720, 480);
   
   // Initialize the flock
@@ -70,8 +67,12 @@ void setup() {
   xMask.endDraw();
   xMask.loadPixels();
   
-  // Initialize camera
-  setupCamera();
+  int whiteCount = 0;
+  for (int i = 0; i < xMask.pixels.length; i++) {
+    if (red(xMask.pixels[i]) > 127) whiteCount++;
+  }
+  println("White pixels in mask: " + whiteCount + " out of " + xMask.pixels.length);
+  
   
   // Initialize emotion palettes
   setupEmotionPalettes();
@@ -92,7 +93,7 @@ void setup() {
   emotionScores.put("neutral", 1.0);
   
   // Create initial boids and place them outside the text area
-  int numBoids = 1500;
+  int numBoids = 3000;
   for (int i = 0; i < numBoids; i++) {
     PVector pos;
     do {
@@ -111,29 +112,6 @@ void setup() {
   
 }
 
-// -----------------------------------------------------------
-// CAMERA SETUP
-// -----------------------------------------------------------
-
-void setupCamera() {
-  String[] cameras = Capture.list();
-  
-  if (cameras.length == 0) {
-    println("No cameras available!");
-    cameraAvailable = false;
-  } else {
-    println("Available cameras:");
-    for (int i = 0; i < cameras.length; i++) {
-      println(i + ": " + cameras[i]);
-    }
-    
-    // Use first available camera
-    cam = new Capture(this, 640, 480, cameras[0]);
-    cam.start();
-    cameraAvailable = true;
-    println("Camera initialized!");
-  }
-}
 
 // -----------------------------------------------------------
 // EMOTION PALETTE SETUP
@@ -210,14 +188,7 @@ void setupEmotionPalettes() {
 
 void draw() {
   background(0);
-  
-  // Update camera if available
-  if (cameraAvailable && cam.available()) {
-    cam.read();
-    // Here you would call your emotion detection
-    // For now, we'll use simulated emotion detection
-    detectEmotionFromCamera();
-  }
+  //image(xMask, 0, 0);
   
   // Update color palette based on detected emotion
   updatePaletteTransition();
@@ -231,23 +202,10 @@ void draw() {
   // Run the flock behavior
   flock.run();
   
-  // Optional: Draw camera preview (toggle with 'c' key)
-  if (showCameraPreview && cameraAvailable) {
-    drawCameraPreview();
-  }
-  
   // Display current emotion info
   drawEmotionInfo();
 }
 
-boolean showCameraPreview = false;
-
-void drawCameraPreview() {
-  pushMatrix();
-  scale(0.2);
-  image(cam, width * 5 - cam.width, 0);
-  popMatrix();
-}
 
 void drawEmotionInfo() {
   fill(255);
@@ -255,29 +213,13 @@ void drawEmotionInfo() {
   textAlign(LEFT, TOP);
   text("Emotion: " + currentEmotion, 10, 10);
   text("Confidence: " + nf(emotionConfidence * 100, 0, 1) + "%", 10, 30);
+  text("FPS: " + nf(frameRate, 0, 1), 10, 50); 
+  text("Boids: " + flock.boids.size(), 10, 70); 
 }
 
 // -----------------------------------------------------------
 // EMOTION DETECTION
 // -----------------------------------------------------------
-
-// This is a placeholder for actual emotion detection
-// You would replace this with calls to your emotion detection API
-void detectEmotionFromCamera() {
-  // PLACEHOLDER: Simulate emotion detection
-  // In a real implementation, you would:
-  // 1. Send camera frame to emotion detection API
-  // 2. Parse the response to get emotion probabilities
-  // 3. Update emotionScores HashMap
-  // 4. Determine predominant emotion
-  
-  // For demonstration, randomly vary emotions slowly
-  if (frameCount % 180 == 0) { // Every ~3 seconds
-    String[] emotions = {"happy", "sad", "angry", "surprised", "fearful", "disgusted", "neutral"};
-    String newEmotion = emotions[int(random(emotions.length))];
-    updateTargetPalette(newEmotion);
-  }
-}
 
 // Call this function when you receive emotion data from your API
 void setEmotionData(String emotion, float confidence) {
@@ -325,11 +267,6 @@ void keyPressed() {
   if (key == '6') setEmotionData("disgusted", 1.0);
   if (key == '7') setEmotionData("neutral", 1.0);
   
-  // Toggle camera preview
-  if (key == 'c' || key == 'C') {
-    showCameraPreview = !showCameraPreview;
-  }
-  
   // Legacy flash controls
   if (key == 'a' || key == 'A') { flashColor = color(237, 159, 61); flashAmount = 1; }
   if (key == 's' || key == 'S') { flashColor = color(0, 160, 193); flashAmount = 1; }
@@ -364,6 +301,61 @@ float maskDepth(PVector p) {
 }
 
 // -----------------------------------------------------------
+// SPATIAL GRID FOR FAST NEIGHBOR LOOKUP
+// -----------------------------------------------------------
+
+class SpatialGrid {
+  int cellSize = 50;
+  HashMap<Integer, ArrayList<Boid>> grid;
+  
+  SpatialGrid() {
+    grid = new HashMap<Integer, ArrayList<Boid>>();
+  }
+  
+  void clear() {
+    grid.clear();
+  }
+  
+  void insert(Boid b) {
+    int key = getKey(b.position);
+    if (!grid.containsKey(key)) {
+      grid.put(key, new ArrayList<Boid>());
+    }
+    grid.get(key).add(b);
+  }
+  
+  ArrayList<Boid> getNearby(PVector pos, float radius) {
+    ArrayList<Boid> nearby = new ArrayList<Boid>();
+    int cellRadius = ceil(radius / cellSize);
+    int cx = floor(pos.x / cellSize);
+    int cy = floor(pos.y / cellSize);
+    
+    for (int dx = -cellRadius; dx <= cellRadius; dx++) {
+      for (int dy = -cellRadius; dy <= cellRadius; dy++) {
+        int key = getKey((cx + dx) * cellSize, (cy + dy) * cellSize);
+        if (grid.containsKey(key)) {
+          nearby.addAll(grid.get(key));
+        }
+      }
+    }
+    return nearby;
+  }
+  
+  int getKey(PVector pos) {
+    return getKey(pos.x, pos.y);
+  }
+  
+  int getKey(float x, float y) {
+    int cx = floor(x / cellSize);
+    int cy = floor(y / cellSize);
+    // Cantor pairing function
+    int a = (cx >= 0) ? 2 * cx : -2 * cx - 1;
+    int b = (cy >= 0) ? 2 * cy : -2 * cy - 1;
+    return (a >= b) ? a * a + a + b : a + b * b;
+  }
+}
+
+// -----------------------------------------------------------
 // BOID CLASS (Modified for emotion-based colors)
 // -----------------------------------------------------------
 
@@ -384,23 +376,23 @@ class Boid {
     maxforce = 0.1;
   }
   
-  void run(ArrayList<Boid> boids) {
+  void run(ArrayList<Boid> boids, SpatialGrid grid) {
     boolean nowInside = isInsideX(position);
     if (nowInside) {
       if (!inX) storedDirection = velocity.copy().normalize();
       inX = true;
-      moveInsideWithSeparation(boids);
+      moveInsideWithSeparation(grid);  // Pass grid
     } else {
       inX = false;
-      flock(boids);
+      flock(grid);  // Pass grid
       update();
     }
     borders();
     render();
   }
   
-  void moveInsideWithSeparation(ArrayList<Boid> boids) {
-    PVector sep = separate(boids);
+  void moveInsideWithSeparation(SpatialGrid grid) {  // Add grid parameter
+    PVector sep = separate(grid);  // Pass grid
     sep.mult(1.4);
     acceleration.add(sep);
     velocity = storedDirection.copy();
@@ -410,10 +402,10 @@ class Boid {
     acceleration.mult(0);
   }
   
-  void flock(ArrayList<Boid> boids) {
-    PVector sep = separate(boids);
-    PVector ali = align(boids);
-    PVector coh = cohesion(boids);
+  void flock(SpatialGrid grid) {  // Add grid parameter
+    PVector sep = separate(grid);
+    PVector ali = align(grid);
+    PVector coh = cohesion(grid);
     sep.mult(1.5);
     ali.mult(1.0);
     coh.mult(1.0);
@@ -484,11 +476,16 @@ class Boid {
     if (position.y > height + r) position.y = -r;
   }
   
-  PVector separate(ArrayList<Boid> boids) { 
+  PVector separate(SpatialGrid grid) {  // Add grid parameter
     float desiredseparation = 12;
     PVector steer = new PVector();
     int count = 0;
-    for (Boid other : boids) {
+    
+    // ONLY CHECK NEARBY BOIDS (this is the speedup!)
+    ArrayList<Boid> nearby = grid.getNearby(position, desiredseparation * 2);
+    
+    for (Boid other : nearby) {
+      if (other == this) continue;  // Skip self
       float d = PVector.dist(position, other.position);
       if (d > 0 && d < desiredseparation) {
         PVector diff = PVector.sub(position, other.position);
@@ -507,12 +504,16 @@ class Boid {
     }
     return steer;
   }
-  
-  PVector align(ArrayList<Boid> boids) {
+
+  PVector align(SpatialGrid grid) {  // Add grid parameter
     float neighbordist = 50;
     PVector sum = new PVector();
     int count = 0;
-    for (Boid other : boids) {
+    
+    ArrayList<Boid> nearby = grid.getNearby(position, neighbordist);
+    
+    for (Boid other : nearby) {
+      if (other == this) continue;
       float d = PVector.dist(position, other.position);
       if (d > 0 && d < neighbordist) {
         sum.add(other.velocity);
@@ -529,12 +530,16 @@ class Boid {
     }
     return new PVector();
   }
-  
-  PVector cohesion(ArrayList<Boid> boids) {
+
+  PVector cohesion(SpatialGrid grid) {  // Add grid parameter
     float neighbordist = 50;
     PVector sum = new PVector();
     int count = 0;
-    for (Boid other : boids) {
+    
+    ArrayList<Boid> nearby = grid.getNearby(position, neighbordist);
+    
+    for (Boid other : nearby) {
+      if (other == this) continue;
       float d = PVector.dist(position, other.position);
       if (d > 0 && d < neighbordist) {
         sum.add(other.position);
@@ -559,21 +564,30 @@ class Boid {
 }
 
 // -----------------------------------------------------------
-// FLOCK CLASS
+// FLOCK CLASS (with spatial grid)
 // -----------------------------------------------------------
 
 class Flock {
   ArrayList<Boid> boids = new ArrayList<Boid>();
+  SpatialGrid grid = new SpatialGrid();
   
   void run() {
-    for (Boid b : boids) b.run(boids);
+    // Rebuild grid each frame
+    grid.clear();
+    for (Boid b : boids) {
+      grid.insert(b);
+    }
+    
+    // Run each boid with grid access
+    for (Boid b : boids) {
+      b.run(boids, grid);
+    }
   }
   
   void addBoid(Boid b) {
     boids.add(b);
   }
 }
-
 void oscEvent(OscMessage msg) {
   // When we receive emotion data from Python
   if (msg.checkAddrPattern("/emotion")) {
