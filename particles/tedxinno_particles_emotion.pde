@@ -22,6 +22,35 @@ PGraphics xMask;
 // Font used to draw the text mask
 PFont myFont;
 
+String quizState = "IDLE";  // States: IDLE, QUESTION, ANALYZING, RESULT
+int currentQuestion = 0;
+String[] questions = {"CREATE or EXPLORE?", "CHAOS or ORDER?", "IMAGINE or ANALYZE?"};
+HashMap<String, Float> tedScores = new HashMap<String, Float>();
+PVector handPos = new PVector();  // Will come from MediaPipe
+boolean handDetected = false;
+
+
+// Quiz interaction tracking
+ArrayList<PVector> handTrail = new ArrayList<PVector>();  // Track hand path
+int maxTrailLength = 30;
+float gestureSpeed = 0;
+PVector prevHandPos = new PVector();
+int questionStartTime = 0;
+
+PGraphics questionMask;  // Dynamic mask for current question
+
+int leftSideTime = 0;   // Frames spent on left
+int rightSideTime = 0;  // Frames spent on right
+float totalSpeed = 0;   // Accumulated speed
+int speedSamples = 0;   // Number of speed samples
+
+int lastRegenTime = 0;
+int regenInterval = 3000;  // Regenerate every 3 seconds
+
+float camRotation = 0;
+ArrayList<TedPoint> tedPoints = new ArrayList<TedPoint>();  // Changed from PVector
+HashMap<String, Integer> emotionCounts = new HashMap<String, Integer>();
+
 
 // Emotion detection variables
 String currentEmotion = "neutral";
@@ -48,7 +77,8 @@ float flashFadeSpeed = 0.02;
 
 void setup() {
   pixelDensity(1);
-  size(720, 480);
+  size(720, 480, P2D);
+  // size(720, 480);
   
   // Initialize the flock
   flock = new Flock();
@@ -101,7 +131,12 @@ void setup() {
     } while (isInsideX(pos));
     flock.addBoid(new Boid(pos.x, pos.y));
   }
-  
+
+  String[] tedTypes = {"Visionary", "Guardian", "Maverick", "Architect", "Connector", "Innovator", "Sage", "Catalyst"};
+  for (String type : tedTypes) {
+    tedScores.put(type, 0.0);
+  }
+    
   oscP5 = new OscP5(this, 12000);
   println("Listening for emotion data on port 12000...");
   
@@ -186,21 +221,414 @@ void setupEmotionPalettes() {
 // DRAW LOOP
 // -----------------------------------------------------------
 
+void createQuestionMask(int questionNum) {
+  questionMask = createGraphics(width, height);
+  questionMask.beginDraw();
+  questionMask.background(0);
+  questionMask.fill(255);
+  questionMask.textAlign(CENTER, CENTER);
+  questionMask.textFont(myFont);
+  questionMask.textSize(50);  // Slightly smaller than TEDxCMU
+  
+  String[] parts = questions[questionNum].split(" or ");
+  
+  // Left word
+  questionMask.text(parts[0], width/4, height/2);
+  
+  // Right word  
+  questionMask.text(parts[1], 3*width/4, height/2);
+  
+  questionMask.endDraw();
+  questionMask.loadPixels();
+
+  
+}
+
+void drawIdleScreen() {
+  fill(255);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("Press SPACE to discover your Ted", width/2, height/2);
+}
+
+void regenerateTextParticles() {
+  // Only regenerate occasionally
+  if (millis() - lastRegenTime < regenInterval) return;
+  lastRegenTime = millis();
+  
+  // Count how many particles are inside the text
+  int particlesInText = 0;
+  for (Boid b : flock.boids) {
+    if (isInsideX(b.position)) particlesInText++;
+  }
+  
+  // If too few particles in text, spawn new ones
+  int targetInText = 800;  // Want at least this many in text
+  if (particlesInText < targetInText) {
+    int toSpawn = targetInText - particlesInText;
+    
+    for (int i = 0; i < toSpawn && flock.boids.size() < 3000; i++) {
+      // Spawn particle inside text
+      PVector pos;
+      int attempts = 0;
+      do {
+        pos = new PVector(random(width), random(height));
+        attempts++;
+      } while (!isInsideX(pos) && attempts < 50);
+      
+      if (isInsideX(pos)) {
+        flock.addBoid(new Boid(pos.x, pos.y));
+      }
+    }
+  }
+}
+
+void drawQuestion() {
+  // Question text at top
+  fill(255);
+  textSize(16);
+  textAlign(CENTER, TOP);
+  String[] parts = questions[currentQuestion].split(" or ");
+  text(parts[0] + " or " + parts[1] + "?", width/2, 20);
+  
+  // Progress indicator below
+  textSize(16);
+  text("Question " + (currentQuestion + 1) + " of " + questions.length, width/2, 65);
+}
+
+void scoreInteraction() {
+  boolean leftSide = handPos.x < width/2;
+  
+  // Track time spent on each side
+  if (leftSide) {
+    leftSideTime++;
+  } else {
+    rightSideTime++;
+  }
+  
+  // Track average movement speed
+  totalSpeed += gestureSpeed;
+  speedSamples++;
+  
+  float avgSpeed = (speedSamples > 0) ? totalSpeed / speedSamples : 0;
+  boolean fastMovement = avgSpeed > 3;
+  
+  // Score based on current question
+  switch(currentQuestion) {
+    case 0:  // CREATE or EXPLORE
+      if (leftSide && !fastMovement) {
+        tedScores.put("Architect", tedScores.get("Architect") + 0.1);
+        tedScores.put("Visionary", tedScores.get("Visionary") + 0.05);
+      }
+      if (leftSide && fastMovement) {
+        tedScores.put("Innovator", tedScores.get("Innovator") + 0.1);
+        tedScores.put("Visionary", tedScores.get("Visionary") + 0.05);
+      }
+      if (!leftSide && !fastMovement) {
+        tedScores.put("Sage", tedScores.get("Sage") + 0.05);
+        tedScores.put("Connector", tedScores.get("Connector") + 0.1);
+      }
+      if (!leftSide && fastMovement) {
+        tedScores.put("Maverick", tedScores.get("Maverick") + 0.1);
+        tedScores.put("Connector", tedScores.get("Connector") + 0.05);
+      }
+      break;
+      
+
+      
+    case 1:  // CHAOS or ORDER
+      if (leftSide) {
+        tedScores.put("Maverick", tedScores.get("Maverick") + 0.1);
+        tedScores.put("Catalyst", tedScores.get("Catalyst") + 0.05);
+      }
+      if (!leftSide) {
+        tedScores.put("Architect", tedScores.get("Architect") + 0.1);
+        tedScores.put("Sage", tedScores.get("Sage") + 0.05);
+      }
+      break;
+      
+
+      
+    case 2:  // IMAGINE or ANALYZE
+      if (leftSide) {
+        tedScores.put("Visionary", tedScores.get("Visionary") + 0.1);
+        tedScores.put("Connector", tedScores.get("Connector") + 0.05);
+      }
+      if (!leftSide) {
+        tedScores.put("Architect", tedScores.get("Architect") + 0.1);
+        tedScores.put("Sage", tedScores.get("Sage") + 0.05);
+        tedScores.put("Innovator", tedScores.get("Innovator") + 0.05);
+      }
+      break;
+  }
+  
+  // Emotion modifiers (optional - adds personality)
+  if (currentEmotion.equals("happy")) {
+    tedScores.put("Visionary", tedScores.get("Visionary") + 0.02);
+    tedScores.put("Connector", tedScores.get("Connector") + 0.02);
+  }
+  if (currentEmotion.equals("neutral") || currentEmotion.equals("sad")) {
+    tedScores.put("Sage", tedScores.get("Sage") + 0.02);
+  }
+
+  if (!emotionCounts.containsKey(currentEmotion)) {
+    emotionCounts.put(currentEmotion, 0);
+  }
+  emotionCounts.put(currentEmotion, emotionCounts.get(currentEmotion) + 1);
+}
+
+void trackInteraction() {
+  if (handDetected) {
+    // Update hand trail
+    handTrail.add(handPos.copy());
+    if (handTrail.size() > maxTrailLength) {
+      handTrail.remove(0);
+    }
+    
+    // Calculate gesture speed
+    gestureSpeed = handPos.dist(prevHandPos);
+    prevHandPos = handPos.copy();
+    
+    // Apply particle force based on current question
+    applyHandForce();
+    
+    // Draw hand visualization
+    drawHandVisualization();
+    
+    // Score interaction periodically
+    if (frameCount % 60 == 0) {
+      scoreInteraction();
+    }
+  }
+}
+
+void applyHandForce() {
+  boolean leftSide = handPos.x < width/2;
+  
+  // ONLY affect particles that are already inside text
+  for (Boid b : flock.boids) {
+    if (isInsideX(b.position)) continue; 
+    
+    float d = PVector.dist(b.position, handPos);
+    if (d > 200) continue;  // Only affect nearby particles
+    
+    switch(currentQuestion) {
+      case 0:  // CREATE or EXPLORE
+        applyCreateExploreForce(b, leftSide, d);
+        break;
+
+      case 1:  // CHAOS or ORDER
+        applyChaosOrderForce(b, leftSide, d);
+        break;
+
+      case 2:  // IMAGINE or ANALYZE
+        applyImagineAnalyzeForce(b, leftSide, d);
+        break;
+    }
+
+    
+  }
+}
+
+void applyCreateExploreForce(Boid b, boolean isCreate, float d) {
+  // Skip particles inside text
+  if (isInsideX(b.position)) return;
+  
+  if (isCreate) {
+    // CREATE: Particles orbit around hand
+    PVector toHand = PVector.sub(handPos, b.position);
+    float angle = toHand.heading() + HALF_PI;
+    PVector orbit = new PVector(cos(angle), sin(angle));
+    orbit.mult(0.2);
+    b.acceleration.add(orbit);
+  } else {
+    // EXPLORE: Particles scatter outward from hand
+    if (d < 120) {
+      PVector scatter = PVector.sub(b.position, handPos);
+      scatter.normalize();
+      scatter.mult(0.15);
+      b.acceleration.add(scatter);
+    }
+  }
+}
+
+
+
+void applyChaosOrderForce(Boid b, boolean isChaos, float d) {
+  if (isChaos) {
+    // CHAOS: Swirl
+    if (d < 120) {
+      PVector toHand = PVector.sub(handPos, b.position);
+      float angle = toHand.heading() + HALF_PI;
+      PVector swirl = new PVector(cos(angle), sin(angle));
+      swirl.mult(0.15);
+      b.acceleration.add(swirl);
+    }
+  } else {
+    // ORDER: Grid snap
+    if (d < 120) {
+      float gridSize = 30;
+      float targetX = round(b.position.x / gridSize) * gridSize;
+      float targetY = round(b.position.y / gridSize) * gridSize;
+      
+      PVector target = new PVector(targetX, targetY);
+      PVector toGrid = PVector.sub(target, b.position);
+      toGrid.mult(0.05);
+      b.acceleration.add(toGrid);
+    }
+  }
+}
+
+void applyImagineAnalyzeForce(Boid b, boolean isImagine, float d) {
+  if (isImagine) {
+    // IMAGINE: Flowing streams using Perlin noise
+    if (d < 150) {
+      float angle = noise(b.position.x * 0.01, b.position.y * 0.01, frameCount * 0.01) * TWO_PI * 2;
+      PVector flow = new PVector(cos(angle), sin(angle));
+      flow.mult(0.25);
+      
+      // Bias toward hand direction
+      PVector toHand = PVector.sub(handPos, b.position);
+      toHand.normalize();
+      toHand.mult(0.05);
+      
+      b.acceleration.add(flow);
+      b.acceleration.add(toHand);
+    }
+  } else {
+    // ANALYZE: Concentric circles (unchanged)
+    if (d < 120) {
+      float radius = 40;
+      PVector toHand = PVector.sub(handPos, b.position);
+      float currentDist = toHand.mag();
+      float targetDist = round(currentDist / radius) * radius;
+      
+      toHand.normalize();
+      toHand.mult(targetDist - currentDist);
+      toHand.mult(0.1);
+      b.acceleration.add(toHand);
+    }
+  }
+}
+
+void drawHandVisualization() {
+  // Draw hand trail
+  noFill();
+  stroke(255, 100);
+  strokeWeight(2);
+  beginShape();
+  for (PVector p : handTrail) {
+    vertex(p.x, p.y);
+  }
+  endShape();
+  
+  // Draw hand position
+  fill(255, 0, 0);
+  noStroke();
+  ellipse(handPos.x, handPos.y, 20, 20);
+}
+
+void drawTedResult() {
+  background(0);
+  
+  // Find highest scoring Ted
+  String winningTed = "";
+  float maxScore = 0;
+  for (String type : tedScores.keySet()) {
+    if (tedScores.get(type) > maxScore) {
+      maxScore = tedScores.get(type);
+      winningTed = type;
+    }
+  }
+  
+  // Generate Ted points if not done yet
+  if (tedPoints.size() == 0) {
+    generateTedBearPoints();
+  }
+  
+  // Title text
+  fill(255);
+  textSize(32);
+  textAlign(CENTER, TOP);
+  text("You are...", width/2, 20);
+  textSize(40);
+  text("The " + winningTed + " Ted", width/2, 60);
+  
+  // Draw 3D Ted (fake 3D using 2D projection)
+  draw3DTed();
+}
+
+color getDominantEmotionColor() {
+  String dominant = "neutral";
+  int maxCount = 0;
+  
+  for (String emotion : emotionCounts.keySet()) {
+    if (emotionCounts.get(emotion) > maxCount) {
+      maxCount = emotionCounts.get(emotion);
+      dominant = emotion;
+    }
+  }
+  
+  if (emotionPalettes.containsKey(dominant)) {
+    return emotionPalettes.get(dominant)[0];
+  }
+  return color(210, 180, 140);  // Default tan bear color
+}
+
+void draw3DTed() {
+  camRotation += 0.015;
+  
+  color dominantColor = getDominantEmotionColor();
+  
+  for (TedPoint tp : tedPoints) {
+    PVector p = tp.pos;
+    
+    float rotatedX = p.x * cos(camRotation) - p.z * sin(camRotation);
+    float rotatedZ = p.x * sin(camRotation) + p.z * cos(camRotation);
+    
+    float scale = 250 / (250 + rotatedZ);
+    float screenX = width/2 + rotatedX * scale;
+    float screenY = height/2 - 30 + p.y * scale;
+    
+    float size = 4 * scale;
+    
+    color c;
+    if (tp.type == 1) {  // Eyes and facial features
+      c = color(50, 40, 35);  // Dark brown
+    } else {  // Head/ears
+      c = dominantColor;
+    }
+    
+    float brightness = map(rotatedZ, -120, 120, 0.6, 1.3);
+    fill(red(c) * brightness, green(c) * brightness, blue(c) * brightness);
+    noStroke();
+    
+    ellipse(screenX, screenY, size, size);
+  }
+}
+
 void draw() {
   background(0);
-  //image(xMask, 0, 0);
   
   // Update color palette based on detected emotion
   updatePaletteTransition();
-  
-  // Gradually fade the flash effect
-  if (flashAmount > 0) {
-    flashAmount -= flashFadeSpeed;
-    flashAmount = max(flashAmount, 0);
+    
+  if (quizState.equals("IDLE")) {
+    drawIdleScreen();
+  } else if (quizState.equals("QUESTION")) {
+    updatePaletteTransition();
+    if (flashAmount > 0) {
+      flashAmount -= flashFadeSpeed;
+      flashAmount = max(flashAmount, 0);
+    }
+    flock.run();
+    drawQuestion();
+    trackInteraction();
+
+  } else if (quizState.equals("RESULT")) {
+    drawTedResult();
   }
-  
-  // Run the flock behavior
-  flock.run();
+
   
   // Display current emotion info
   drawEmotionInfo();
@@ -215,6 +643,86 @@ void drawEmotionInfo() {
   text("Confidence: " + nf(emotionConfidence * 100, 0, 1) + "%", 10, 30);
   text("FPS: " + nf(frameRate, 0, 1), 10, 50); 
   text("Boids: " + flock.boids.size(), 10, 70); 
+}
+
+
+void generateTedBearPoints() {
+  tedPoints.clear();
+  
+  // Main head (big sphere)
+  for (int i = 0; i < 300; i++) {
+    float theta = random(TWO_PI);
+    float phi = random(PI);
+    float r = 80;
+    float x = r * sin(phi) * cos(theta);
+    float y = r * sin(phi) * sin(theta);
+    float z = r * cos(phi);
+    tedPoints.add(new TedPoint(x, y, z, 0));  // type 0 = head
+  }
+  
+  // Left ear
+  for (int i = 0; i < 80; i++) {
+    float theta = random(TWO_PI);
+    float phi = random(PI);
+    float r = 30;
+    float x = -60 + r * sin(phi) * cos(theta);
+    float y = -70 + r * sin(phi) * sin(theta);
+    float z = r * cos(phi);
+    tedPoints.add(new TedPoint(x, y, z, 0));
+  }
+  
+  // Right ear
+  for (int i = 0; i < 80; i++) {
+    float theta = random(TWO_PI);
+    float phi = random(PI);
+    float r = 30;
+    float x = 60 + r * sin(phi) * cos(theta);
+    float y = -70 + r * sin(phi) * sin(theta);
+    float z = r * cos(phi);
+    tedPoints.add(new TedPoint(x, y, z, 0));
+  }
+  
+  // Left eye
+  for (int i = 0; i < 25; i++) {
+    float theta = random(TWO_PI);
+    float phi = random(HALF_PI);
+    float r = 8;
+    float x = -25 + r * sin(phi) * cos(theta);
+    float y = -15 + r * sin(phi) * sin(theta);
+    float z = 70 + r * cos(phi);
+    tedPoints.add(new TedPoint(x, y, z, 1));  // type 1 = features
+  }
+  
+  // Right eye
+  for (int i = 0; i < 25; i++) {
+    float theta = random(TWO_PI);
+    float phi = random(HALF_PI);
+    float r = 8;
+    float x = 25 + r * sin(phi) * cos(theta);
+    float y = -15 + r * sin(phi) * sin(theta);
+    float z = 70 + r * cos(phi);
+    tedPoints.add(new TedPoint(x, y, z, 1));
+  }
+  
+  // Nose
+  for (int i = 0; i < 20; i++) {
+    float theta = random(TWO_PI);
+    float phi = random(HALF_PI);
+    float r = 10;
+    float x = r * sin(phi) * cos(theta);
+    float y = 15 + r * sin(phi) * sin(theta);
+    float z = 75 + r * cos(phi);
+    tedPoints.add(new TedPoint(x, y, z, 1));
+  }
+  
+  // Smile
+  for (int i = 0; i < 15; i++) {
+    float angle = map(i, 0, 14, -QUARTER_PI, QUARTER_PI);
+    float x = 20 * sin(angle);
+    float y = 30 + 5 * cos(angle);
+    float z = 72;
+    tedPoints.add(new TedPoint(x, y, z, 1));
+  }
 }
 
 // -----------------------------------------------------------
@@ -273,6 +781,35 @@ void keyPressed() {
   if (key == 'd' || key == 'D') { flashColor = color(203, 17, 0); flashAmount = 1; }
   if (key == 'f' || key == 'F') { flashColor = color(254, 127, 0); flashAmount = 1; }
   if (key == 'g' || key == 'G') { flashColor = color(204, 204, 255); flashAmount = 1; }
+
+  if (key == ' ') {
+    if (quizState.equals("IDLE")) {
+      quizState = "QUESTION";
+      currentQuestion = 0;
+      questionStartTime = millis();
+      createQuestionMask(currentQuestion); 
+
+      leftSideTime = 0;
+      rightSideTime = 0;
+      totalSpeed = 0;
+      speedSamples = 0;
+    } else if (quizState.equals("QUESTION")) {
+      currentQuestion++;
+      if (currentQuestion >= questions.length) {
+        quizState = "RESULT";
+      } else {
+        createQuestionMask(currentQuestion); 
+
+        leftSideTime = 0;
+        rightSideTime = 0;
+        totalSpeed = 0;
+        speedSamples = 0;
+      }
+    } else if (quizState.equals("RESULT")) {
+      quizState = "IDLE";
+      for (String type : tedScores.keySet()) tedScores.put(type, 0.0);
+    }
+  }
 }
 
 // -----------------------------------------------------------
@@ -282,18 +819,28 @@ void keyPressed() {
 boolean isInsideX(PVector p) {
   int xi = constrain(floor(p.x), 0, width-1);
   int yi = constrain(floor(p.y), 0, height-1);
-  return red(xMask.pixels[xi + yi * width]) > 127;
+  
+  // Use question mask during questions, TEDxCMU mask otherwise
+  PGraphics currentMask = (quizState.equals("QUESTION")) ? questionMask : xMask;
+  
+  return red(currentMask.pixels[xi + yi * width]) > 127;
 }
 
 float maskDepth(PVector p) {
+  int xi = constrain(floor(p.x), 0, width-1);
+  int yi = constrain(floor(p.y), 0, height-1);
+  
+  // Use question mask during questions
+  PGraphics currentMask = (quizState.equals("QUESTION")) ? questionMask : xMask;
+  
   float sum = 0;
   int count = 0;
   int r = 4;
   for (int dx = -r; dx <= r; dx++) {
     for (int dy = -r; dy <= r; dy++) {
-      int xi = constrain(floor(p.x + dx), 0, width - 1);
-      int yi = constrain(floor(p.y + dy), 0, height - 1);
-      sum += red(xMask.pixels[xi + yi * width]);
+      int xi2 = constrain(xi + dx, 0, width - 1);
+      int yi2 = constrain(yi + dy, 0, height - 1);
+      sum += red(currentMask.pixels[xi2 + yi2 * width]);
       count++;
     }
   }
@@ -307,6 +854,7 @@ float maskDepth(PVector p) {
 class SpatialGrid {
   int cellSize = 50;
   HashMap<Integer, ArrayList<Boid>> grid;
+  ArrayList<Boid> reusableList = new ArrayList<Boid>();
   
   SpatialGrid() {
     grid = new HashMap<Integer, ArrayList<Boid>>();
@@ -325,7 +873,7 @@ class SpatialGrid {
   }
   
   ArrayList<Boid> getNearby(PVector pos, float radius) {
-    ArrayList<Boid> nearby = new ArrayList<Boid>();
+    reusableList.clear(); // Reuse instead of creating new
     int cellRadius = ceil(radius / cellSize);
     int cx = floor(pos.x / cellSize);
     int cy = floor(pos.y / cellSize);
@@ -334,11 +882,11 @@ class SpatialGrid {
       for (int dy = -cellRadius; dy <= cellRadius; dy++) {
         int key = getKey((cx + dx) * cellSize, (cy + dy) * cellSize);
         if (grid.containsKey(key)) {
-          nearby.addAll(grid.get(key));
+          reusableList.addAll(grid.get(key));
         }
       }
     }
-    return nearby;
+    return reusableList;
   }
   
   int getKey(PVector pos) {
@@ -396,7 +944,7 @@ class Boid {
     sep.mult(1.4);
     acceleration.add(sep);
     velocity = storedDirection.copy();
-    velocity.mult(normalSpeed * 0.08);
+    velocity.mult(normalSpeed * 0.15);
     velocity.add(acceleration);
     position.add(velocity);
     acceleration.mult(0);
@@ -482,7 +1030,7 @@ class Boid {
     int count = 0;
     
     // ONLY CHECK NEARBY BOIDS (this is the speedup!)
-    ArrayList<Boid> nearby = grid.getNearby(position, desiredseparation * 2);
+    ArrayList<Boid> nearby = grid.getNearby(position, desiredseparation);
     
     for (Boid other : nearby) {
       if (other == this) continue;  // Skip self
@@ -506,7 +1054,7 @@ class Boid {
   }
 
   PVector align(SpatialGrid grid) {  // Add grid parameter
-    float neighbordist = 50;
+    float neighbordist = 35;
     PVector sum = new PVector();
     int count = 0;
     
@@ -532,7 +1080,7 @@ class Boid {
   }
 
   PVector cohesion(SpatialGrid grid) {  // Add grid parameter
-    float neighbordist = 50;
+    float neighbordist = 35;
     PVector sum = new PVector();
     int count = 0;
     
@@ -596,5 +1144,18 @@ void oscEvent(OscMessage msg) {
     
     // Update the particles!
     setEmotionData(emotion, confidence);
+  }
+
+  if (msg.checkAddrPattern("/hand")) {
+    float x = msg.get(0).floatValue();
+    float y = msg.get(1).floatValue();
+    
+    // Map camera coordinates to screen coordinates
+    // Camera is mirrored, so flip x
+    handPos.x = map(x, 0, 640, 0, width);  // Changed from (width, 0) to (0, width)
+    handPos.y = map(y, 0, 480, 0, height);
+    handDetected = true;
+    
+    println("Hand at: " + handPos.x + ", " + handPos.y);  // Debug
   }
 }
