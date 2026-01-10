@@ -102,52 +102,53 @@ void drawIdleScreen() {
     fill(handColor);
     ellipse(handPos.x, handPos.y, 20, 20);
 }
-void drawHoverZones() {
-  if (!handDetected) return;
-  
-  String[] parts = questions[currentQuestion].split(" or ");
-  
-  // Measure text width dynamically
-  textFont(myFont);
-  textSize(100);  // Same size as mask
-  
-  float leftWidth = textWidth(parts[0]);
-  float rightWidth = textWidth(parts[1]);
-  
-  float padding = 40;  // Extra space around text
-  
-  // Left zone
-  boolean hoveringLeft = (handPos.x < width/2 && 
-                          handPos.x > width/4 - leftWidth/2 - padding && 
-                          handPos.x < width/4 + leftWidth/2 + padding &&
-                          handPos.y > height/2 - 80 && 
-                          handPos.y < height/2 + 80);
-  
-  // Right zone  
-  boolean hoveringRight = (handPos.x >= width/2 &&
-                           handPos.x > 3*width/4 - rightWidth/2 - padding && 
-                           handPos.x < 3*width/4 + rightWidth/2 + padding &&
-                           handPos.y > height/2 - 80 && 
-                           handPos.y < height/2 + 80);
-  
-  // Draw boxes
-  noFill();
-  strokeWeight(3);
-  
-  if (hoveringLeft) {
-    stroke(currentPalette[0], 150);
-    rectMode(CENTER);
-    rect(width/4, height/2, leftWidth + padding*2, 160, 20);
+
+  void drawHoverZones() {
+    if (!handDetected) return;
+    
+    String[] parts = questions[currentQuestion].split(" or ");
+    
+    // Measure text width dynamically
+    textFont(myFont);
+    textSize(100);  // Same size as mask
+    
+    float leftWidth = textWidth(parts[0]);
+    float rightWidth = textWidth(parts[1]);
+    
+    float padding = 40;  // Extra space around text
+    
+    // Left zone
+    boolean hoveringLeft = (handPos.x < width/2 && 
+                            handPos.x > width/4 - leftWidth/2 - padding && 
+                            handPos.x < width/4 + leftWidth/2 + padding &&
+                            handPos.y > height/2 - 80 && 
+                            handPos.y < height/2 + 80);
+    
+    // Right zone  
+    boolean hoveringRight = (handPos.x >= width/2 &&
+                            handPos.x > 3*width/4 - rightWidth/2 - padding && 
+                            handPos.x < 3*width/4 + rightWidth/2 + padding &&
+                            handPos.y > height/2 - 80 && 
+                            handPos.y < height/2 + 80);
+    
+    // Draw boxes
+    noFill();
+    strokeWeight(3);
+    
+    if (hoveringLeft) {
+      stroke(currentPalette[0], 150);
+      rectMode(CENTER);
+      rect(width/4, height/2, leftWidth + padding*2, 160, 20);
+    }
+    
+    if (hoveringRight) {
+      stroke(currentPalette[4], 150);
+      rectMode(CENTER);
+      rect(3*width/4, height/2, rightWidth + padding*2, 160, 20);
+    }
+    
+    rectMode(CORNER);  // Reset to default
   }
-  
-  if (hoveringRight) {
-    stroke(currentPalette[4], 150);
-    rectMode(CENTER);
-    rect(3*width/4, height/2, rightWidth + padding*2, 160, 20);
-  }
-  
-  rectMode(CORNER);  // Reset to default
-}
 
 
   void drawTedResult() {
