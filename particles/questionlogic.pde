@@ -302,22 +302,34 @@ void initializeTedScores() {
     if (!handDetected) return;
     
     if (millis() - lastClickTime < clickCooldown) {
-      hoveredSide = "none";  // Don't allow hovering during cooldown
+      hoveredSide = "none";
       return;
     }
+    
+    // Measure text widths
+    String[] parts = questions[currentQuestion].split(" or ");
+    textFont(myFont);
+    textSize(100);
+    float leftWidth = textWidth(parts[0]);
+    float rightWidth = textWidth(parts[1]);
+    float padding = 40;
     
     boolean isLeft = handPos.x < width/2;
     boolean isNearText = false;
     
-    // Check if hand is actually near the text
+    // Check with dynamic bounds
     if (isLeft) {
-      if (handPos.x > width/4 - 150 && handPos.x < width/4 + 150 &&
-          handPos.y > height/2 - 80 && handPos.y < height/2 + 80) {
+      if (handPos.x > width/4 - leftWidth/2 - padding && 
+          handPos.x < width/4 + leftWidth/2 + padding &&
+          handPos.y > height/2 - 80 && 
+          handPos.y < height/2 + 80) {
         isNearText = true;
       }
     } else {
-      if (handPos.x > 3*width/4 - 150 && handPos.x < 3*width/4 + 150 &&
-          handPos.y > height/2 - 80 && handPos.y < height/2 + 80) {
+      if (handPos.x > 3*width/4 - rightWidth/2 - padding && 
+          handPos.x < 3*width/4 + rightWidth/2 + padding &&
+          handPos.y > height/2 - 80 && 
+          handPos.y < height/2 + 80) {
         isNearText = true;
       }
     }
@@ -334,7 +346,7 @@ void initializeTedScores() {
       
       if (hoverTime >= hoverDuration) {
         makeChoice(isLeft);
-        lastClickTime = millis();  // NEW: Record click time
+        lastClickTime = millis();
       }
     } else {
       hoveredSide = "none";

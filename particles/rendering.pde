@@ -102,36 +102,53 @@ void drawIdleScreen() {
     fill(handColor);
     ellipse(handPos.x, handPos.y, 20, 20);
 }
-  void drawHoverZones() {
-    // Only show when hand is detected
-    if (!handDetected) return;
-    
-    String[] parts = questions[currentQuestion].split(" or ");
-    
-    // Left zone
-    boolean hoveringLeft = (handPos.x < width/2 && 
-                            handPos.x > width/4 - 150 && handPos.x < width/4 + 150 &&
-                            handPos.y > height/2 - 80 && handPos.y < height/2 + 80);
-    
-    // Right zone  
-    boolean hoveringRight = (handPos.x >= width/2 &&
-                             handPos.x > 3*width/4 - 150 && handPos.x < 3*width/4 + 150 &&
-                             handPos.y > height/2 - 80 && handPos.y < height/2 + 80);
-    
-    // Draw subtle boxes around words
-    noFill();
-    strokeWeight(2);
-    
-    if (hoveringLeft) {
-      stroke(currentPalette[0], 150);
-      rect(width/4 - 150, height/2 - 80, 300, 160, 20);
-    }
-    
-    if (hoveringRight) {
-      stroke(currentPalette[4], 150);
-      rect(3*width/4 - 150, height/2 - 80, 300, 160, 20);
-    }
+void drawHoverZones() {
+  if (!handDetected) return;
+  
+  String[] parts = questions[currentQuestion].split(" or ");
+  
+  // Measure text width dynamically
+  textFont(myFont);
+  textSize(100);  // Same size as mask
+  
+  float leftWidth = textWidth(parts[0]);
+  float rightWidth = textWidth(parts[1]);
+  
+  float padding = 40;  // Extra space around text
+  
+  // Left zone
+  boolean hoveringLeft = (handPos.x < width/2 && 
+                          handPos.x > width/4 - leftWidth/2 - padding && 
+                          handPos.x < width/4 + leftWidth/2 + padding &&
+                          handPos.y > height/2 - 80 && 
+                          handPos.y < height/2 + 80);
+  
+  // Right zone  
+  boolean hoveringRight = (handPos.x >= width/2 &&
+                           handPos.x > 3*width/4 - rightWidth/2 - padding && 
+                           handPos.x < 3*width/4 + rightWidth/2 + padding &&
+                           handPos.y > height/2 - 80 && 
+                           handPos.y < height/2 + 80);
+  
+  // Draw boxes
+  noFill();
+  strokeWeight(3);
+  
+  if (hoveringLeft) {
+    stroke(currentPalette[0], 150);
+    rectMode(CENTER);
+    rect(width/4, height/2, leftWidth + padding*2, 160, 20);
   }
+  
+  if (hoveringRight) {
+    stroke(currentPalette[4], 150);
+    rectMode(CENTER);
+    rect(3*width/4, height/2, rightWidth + padding*2, 160, 20);
+  }
+  
+  rectMode(CORNER);  // Reset to default
+}
+
 
   void drawTedResult() {
     background(0);
@@ -153,36 +170,36 @@ void drawIdleScreen() {
     // Main title
     fill(255);
     textFont(myFont);
-    textSize(56);
+    textSize(48);
     textAlign(CENTER, TOP);
-    text("You are a...", width/2, 15);
+    text("You are a...", width/2, height * 0.05);
     
-    textSize(56);
+    textSize(64);
     fill(getDominantEmotionColor());
-    text(winningScotty + "!", width/2, 50);
+    text(winningScotty + "!", width/2, height * 0.12);
     
-    // Spinning Scotty
+    // Spinning Scotty (centered)
     pushMatrix();
-    translate(0, -40);
+    translate(0, 0);
     draw3DTed();
     popMatrix();
     
     // Description
     fill(255);
-    textSize(32);
+    textSize(22);
     textAlign(CENTER, BOTTOM);
     String description = getScottyDescription(winningScotty);
-    text(description, width/2, height - 80);
+    text(description, width/2, height * 0.78);
     
     // Stats - simple
-    textSize(30);
+    textSize(20);
     fill(255, 200);
     
     // Get movement style
     float avgSpeed = (speedSamples > 0) ? totalSpeed / speedSamples : 0;
     String movement = avgSpeed < 2 ? "Thoughtful" : (avgSpeed < 4 ? "Balanced" : "Energetic");
     
-    // Get dominant emotion (using existing function)
+    // Get dominant emotion
     String dominant = "neutral";
     int maxCount = 0;
     for (String emotion : emotionCounts.keySet()) {
@@ -192,15 +209,13 @@ void drawIdleScreen() {
       }
     }
     
-    text("Dominant emotion: " + dominant.toUpperCase(), width/2, height - 55);
-
-    textSize(24);
-    text("Movement style: " + movement, width/2, height - 35);
+    text("Dominant emotion: " + dominant.toUpperCase(), width/2, height * 0.86);
+    text("Movement style: " + movement, width/2, height * 0.91);
     
     // Restart prompt
     fill(255, 150);
-    textSize(24);
-    text("Press SPACE to try again", width/2, height - 10);
+    textSize(16);
+    text("Press SPACE to try again", width/2, height * 0.98);
   }
   
 
