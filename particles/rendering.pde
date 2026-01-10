@@ -7,11 +7,11 @@ void drawIdleScreen() {
     // Let people play with ALL the particle behaviors at once
     
     fill(255);
-    textSize(24);
+    textSize(48);
     textAlign(CENTER, TOP);
     text("TEDxCMU", width/2, 30);
     
-    textSize(16);
+    textSize(28);
     fill(255, 200);
     text("Move your hand to explore", width/2, 70);
     text("Press SPACE when ready to discover your Scotty", width/2, height - 40);
@@ -19,23 +19,22 @@ void drawIdleScreen() {
     // Show what behavior is active based on hand position
     if (handDetected) {
       String currentBehavior = getIdleBehavior();
-      textSize(14);
+      textSize(24);
       fill(currentPalette[0]);
       text(currentBehavior, handPos.x, handPos.y - 30);
     }
   }
   void drawQuestion() {
     fill(255);
-    textSize(16);
+    textSize(32);
     textAlign(CENTER, TOP);
     String[] parts = questions[currentQuestion].split(" or ");
     text(parts[0] + " or " + parts[1] + "?", width/2, 20);
     
-    textSize(16);
+    textSize(28);
     text("Question " + (currentQuestion + 1) + " of " + questions.length, width/2, 65);
     
-    // NEW: Show cooldown or instructions
-    textSize(12);
+    textSize(24);
     int timeSinceClick = millis() - lastClickTime;
     if (timeSinceClick < clickCooldown) {
       fill(255, 100);
@@ -154,11 +153,11 @@ void drawIdleScreen() {
     // Main title
     fill(255);
     textFont(myFont);
-    textSize(28);
+    textSize(56);
     textAlign(CENTER, TOP);
     text("You are a...", width/2, 15);
     
-    textSize(36);
+    textSize(56);
     fill(getDominantEmotionColor());
     text(winningScotty + "!", width/2, 50);
     
@@ -170,13 +169,13 @@ void drawIdleScreen() {
     
     // Description
     fill(255);
-    textSize(15);
+    textSize(32);
     textAlign(CENTER, BOTTOM);
     String description = getScottyDescription(winningScotty);
     text(description, width/2, height - 80);
     
     // Stats - simple
-    textSize(14);
+    textSize(30);
     fill(255, 200);
     
     // Get movement style
@@ -194,45 +193,15 @@ void drawIdleScreen() {
     }
     
     text("Dominant emotion: " + dominant.toUpperCase(), width/2, height - 55);
+
+    textSize(24);
     text("Movement style: " + movement, width/2, height - 35);
     
     // Restart prompt
     fill(255, 150);
-    textSize(11);
+    textSize(24);
     text("Press SPACE to try again", width/2, height - 10);
   }
-  
-  // void drawTedResult() {
-  //   background(0);
-    
-  //   String winningTed = "";
-  //   float maxScore = 0;
-  //   for (String type : tedScores.keySet()) {
-  //     if (tedScores.get(type) > maxScore) {
-  //       maxScore = tedScores.get(type);
-  //       winningTed = type;
-  //     }
-  //   }
-    
-  //   if (tedPoints.size() == 0) {
-  //     generateTedBearPoints();
-  //   }
-    
-  //   fill(255);
-  //   textSize(32);
-  //   textAlign(CENTER, TOP);
-  //   text("You are...", width/2, 20);
-  //   textSize(40);
-  //   text("The " + winningTed, width/2, 60);
-    
-  //   draw3DTed();
-
-  //   fill(255);
-  //   textSize(18);
-  //   textAlign(CENTER, BOTTOM);
-  //   String description = getScottyDescription(winningTed);
-  //   text(description, width/2, height - 20);
-  // }
   
 
   void generateTedBearPoints() {

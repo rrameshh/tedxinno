@@ -17,7 +17,7 @@ void initializeTedScores() {
     questionMask.fill(255);
     questionMask.textAlign(CENTER, CENTER);
     questionMask.textFont(myFont);
-    questionMask.textSize(50);
+    questionMask.textSize(100);
     
     String[] parts = questions[questionNum].split(" or ");
     questionMask.text(parts[0], width/4, height/2);
@@ -25,6 +25,30 @@ void initializeTedScores() {
     
     questionMask.endDraw();
     questionMask.loadPixels();
+    
+    // NEW: Remove excess boids if there are too many
+    while (flock.boids.size() > 3000) {
+      flock.boids.remove(0);  // Remove oldest boids
+    }
+    
+    // spawnParticlesInMask(800);
+  }
+
+  void spawnParticlesInMask(int count) {
+    for (int i = 0; i < count; i++) {
+      PVector pos;
+      int attempts = 0;
+      do {
+        pos = new PVector(random(width), random(height));
+        attempts++;
+      } while (!isInsideX(pos) && attempts < 50);
+      
+      if (isInsideX(pos)) {
+        Boid newBoid = new Boid(pos.x, pos.y);
+        newBoid.velocity.mult(0.3);  // Start slow
+        flock.addBoid(newBoid);
+      }
+    }
   }
   
   void handleSpaceBar() {
@@ -69,8 +93,44 @@ void initializeTedScores() {
       if (frameCount % 60 == 0) {
         scoreInteraction();
       }
+
+      // maintainTextDensity();
     }
   }
+
+  void maintainTextDensity() {
+    // Count particles in text
+    int particlesInText = 0;
+    for (Boid b : flock.boids) {
+      if (isInsideX(b.position)) particlesInText++;
+    }
+    
+    int targetDensity = 800;
+    int maxTotalBoids = 4000; 
+    
+    if (particlesInText < targetDensity && flock.boids.size() < maxTotalBoids) {  // Check cap
+      int toSpawn = min(10, targetDensity - particlesInText);
+      toSpawn = min(toSpawn, maxTotalBoids - flock.boids.size());  // Don't exceed cap
+      
+      for (int i = 0; i < toSpawn; i++) {
+        PVector pos;
+        int attempts = 0;
+        do {
+          pos = new PVector(random(width), random(height));
+          attempts++;
+        } while (!isInsideX(pos) && attempts < 20);
+        
+        if (isInsideX(pos)) {
+          Boid newBoid = new Boid(pos.x, pos.y);
+          newBoid.velocity.mult(0.2);
+          flock.addBoid(newBoid);
+        }
+      }
+    }
+  }
+
+
+
   
   void scoreInteraction() {
     boolean leftSide = handPos.x < width/2;

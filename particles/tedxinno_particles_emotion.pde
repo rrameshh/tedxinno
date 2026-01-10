@@ -70,10 +70,12 @@ PImage scottyImg;
 // -----------------------------------------------------------
 void setup() {
   pixelDensity(1);
-  size(720, 480, P2D);
-  
+  fullScreen(P2D);
+ 
   flock = new Flock();
-  myFont = createFont("Helvetica-Bold", 100);
+  myFont = createFont("Helvetica-Bold", 200);
+
+  
   
   // Create TEDxCMU mask
   xMask = createGraphics(width, height);
@@ -96,7 +98,8 @@ void setup() {
   initializeEmotionScores();
   
   // Create initial boids
-  int numBoids = 3000;
+  int numBoids = 1500;
+
   for (int i = 0; i < numBoids; i++) {
     PVector pos;
     do {
@@ -105,12 +108,29 @@ void setup() {
     flock.addBoid(new Boid(pos.x, pos.y));
   }
 
+  int textBoids = 1500;
+  for (int i = 0; i < textBoids; i++) {
+    PVector pos;
+    int attempts = 0;
+    do {
+      pos = new PVector(random(width), random(height));
+      attempts++;
+    } while (!isInsideX(pos) && attempts < 100);
+    
+    if (isInsideX(pos)) {
+      flock.addBoid(new Boid(pos.x, pos.y));
+    }
+  }
+
   initializeTedScores();
   scottyImg = loadImage("scotty.png");
 
   oscP5 = new OscP5(this, 12000);
   println("Listening for emotion data on port 12000...");
   println("Press SPACE to start, 1-7 for emotion colors");
+
+
+  
 }
 
 // -----------------------------------------------------------
@@ -132,6 +152,10 @@ void draw() {
       flashAmount -= flashFadeSpeed;
       flashAmount = max(flashAmount, 0);
     }
+
+    drawQuestionText();
+
+
     flock.run();
     drawQuestion();
     drawHoverZones();
@@ -142,6 +166,18 @@ void draw() {
   }
   
   drawEmotionInfo();
+}
+
+void drawQuestionText() {
+  String[] parts = questions[currentQuestion].split(" or ");
+  
+  fill(80, 80, 80, 150);  // Dark gray, semi-transparent
+  textFont(myFont);
+  textSize(100);
+  textAlign(CENTER, CENTER);
+  
+  text(parts[0], width/4, height/2);
+  text(parts[1], 3*width/4, height/2);
 }
 
 // -----------------------------------------------------------

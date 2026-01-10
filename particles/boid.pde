@@ -66,7 +66,6 @@ class Boid {
     
     void render() {
       float baseRadius = map(maskDepth(position), 0, 1, 1.0, 1.6);
-      
       float time = millis() * 0.0005;
       float cx = width/2 + map(noise(time, 0), 0, 1, -50, 50);
       float cy = height/2 + map(noise(0, time), 0, 1, -50, 50);
@@ -90,7 +89,14 @@ class Boid {
         green(baseCol) * brightness / 255.0,
         blue(baseCol) * brightness / 255.0
       );
-      
+
+      // float screenScale = width / 720.0;  // Compare to original width
+      // baseRadius *= screenScale;
+
+      // if (isInsideX(position)) {
+      //   baseRadius *= 1.8;  // 80% bigger when inside text
+      // }
+          
       color finalCol = lerpColor(outsideCol, color(255), maskDepth(position));
       
       if (!isInsideX(position)) finalCol = lerpColor(finalCol, flashColor, flashAmount);
