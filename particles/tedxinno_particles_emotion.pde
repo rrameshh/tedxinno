@@ -23,7 +23,7 @@ PVector handPos = new PVector();
 boolean handDetected = false;
 
 ArrayList<PVector> handTrail = new ArrayList<PVector>();
-int maxTrailLength = 30;
+int maxTrailLength = 20;
 float gestureSpeed = 0;
 PVector prevHandPos = new PVector();
 
@@ -56,13 +56,16 @@ float flashFadeSpeed = 0.02;
 boolean hoveredLeft = false;
 boolean hoveredRight = false;
 int hoverStartTime = 0;
-int hoverDuration = 2500;  // 2.5 second hover to "click"
+int hoverDuration = 2500;
 String hoveredSide = "none";
 
 int lastClickTime = 0;
-int clickCooldown = 2000;  // 2 seconds between clicks
+int clickCooldown = 2000;
 PImage scottyImg;
 
+float cachedCenterX = 0;
+float cachedCenterY = 0;
+int noiseCacheFrame = 0;
 
 
 // -----------------------------------------------------------
@@ -98,7 +101,7 @@ void setup() {
   initializeEmotionScores();
   
   // Create initial boids
-  int numBoids = 1500;
+  int numBoids = 4000;
 
   for (int i = 0; i < numBoids; i++) {
     PVector pos;
@@ -138,6 +141,13 @@ void setup() {
 // -----------------------------------------------------------
 void draw() {
   background(0);
+
+  if (frameCount % 5 == 0 || noiseCacheFrame == 0) {
+    float time = millis() * 0.0005;
+    cachedCenterX = width/2 + map(noise(time, 0), 0, 1, -50, 50);
+    cachedCenterY = height/2 + map(noise(0, time), 0, 1, -50, 50);
+    noiseCacheFrame = frameCount;
+  }
   updatePaletteTransition();
     
   if (quizState.equals("IDLE")) {

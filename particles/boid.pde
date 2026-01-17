@@ -6,6 +6,8 @@ class Boid {
     PVector position, velocity, acceleration, storedDirection;
     boolean inX = false;
     float r, maxforce, maxspeed, normalSpeed;
+    color cachedColor = color(255);
+    int colorCacheFrame = -10;
     
     Boid(float x, float y) {
       acceleration = new PVector();
@@ -63,18 +65,39 @@ class Boid {
       position.add(velocity);
       acceleration.mult(0);
     }
-    
+
     void render() {
       float baseRadius = map(maskDepth(position), 0, 1, 1.0, 1.6);
-      float time = millis() * 0.0005;
-      float cx = width/2 + map(noise(time, 0), 0, 1, -50, 50);
-      float cy = height/2 + map(noise(0, time), 0, 1, -50, 50);
       
+      // CHANGED: Only recalculate color every 3 frames
+      if (frameCount - colorCacheFrame > 3) {
+        cachedColor = calculateColor();
+        colorCacheFrame = frameCount;
+      }
+      
+      fill(cachedColor);
+      noStroke();
+      
+      float theta = velocity.heading() + radians(90);
+      pushMatrix();
+      translate(position.x, position.y);
+      rotate(theta);
+      beginShape(TRIANGLES);
+      vertex(0, -baseRadius * 3);
+      vertex(-baseRadius, baseRadius * 3);
+      vertex(baseRadius, baseRadius * 3);
+      endShape(CLOSE);
+      popMatrix();
+    }
+
+    color calculateColor() {
+      // Use cached center values from main sketch
       float nx = position.x * 0.01;
       float ny = position.y * 0.01;
+      float time = millis() * 0.0005;
       float noiseOffset = map(noise(nx, ny, time), 0, 1, -30, 30);
       
-      float d = dist(position.x, position.y, cx + noiseOffset, cy + noiseOffset);
+      float d = dist(position.x, position.y, cachedCenterX + noiseOffset, cachedCenterY + noiseOffset);
       float t = constrain(map(d, 0, 200, 0, 1), 0, 1);
       
       color baseCol;
@@ -89,31 +112,12 @@ class Boid {
         green(baseCol) * brightness / 255.0,
         blue(baseCol) * brightness / 255.0
       );
-
-      // float screenScale = width / 720.0;  // Compare to original width
-      // baseRadius *= screenScale;
-
-      // if (isInsideX(position)) {
-      //   baseRadius *= 1.8;  // 80% bigger when inside text
-      // }
-          
+      
       color finalCol = lerpColor(outsideCol, color(255), maskDepth(position));
       
       if (!isInsideX(position)) finalCol = lerpColor(finalCol, flashColor, flashAmount);
       
-      fill(finalCol);
-      noStroke();
-      
-      float theta = velocity.heading() + radians(90);
-      pushMatrix();
-      translate(position.x, position.y);
-      rotate(theta);
-      beginShape(TRIANGLES);
-      vertex(0, -baseRadius * 3);
-      vertex(-baseRadius, baseRadius * 3);
-      vertex(baseRadius, baseRadius * 3);
-      endShape(CLOSE);
-      popMatrix();
+      return finalCol;
     }
     
     void borders() {
