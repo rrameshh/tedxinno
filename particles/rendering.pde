@@ -210,7 +210,7 @@ void drawIdleScreen() {
       }
     }
     
-    text("Dominant emotion: " + dominant.toUpperCase(), width/2, height * 0.86);
+    // text("Dominant emotion: " + dominant.toUpperCase(), width/2, height * 0.86);
     text("Movement style: " + movement, width/2, height * 0.91);
     
     // Restart prompt

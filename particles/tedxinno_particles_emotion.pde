@@ -101,7 +101,7 @@ void setup() {
   initializeEmotionScores();
   
   // Create initial boids
-  int numBoids = 4000;
+  int numBoids = 3000;
 
   for (int i = 0; i < numBoids; i++) {
     PVector pos;

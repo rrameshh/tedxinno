@@ -68,6 +68,7 @@ class Boid {
 
     void render() {
       float baseRadius = map(maskDepth(position), 0, 1, 1.0, 1.6);
+      baseRadius *= 1.2; 
       
       // CHANGED: Only recalculate color every 3 frames
       if (frameCount - colorCacheFrame > 3) {
