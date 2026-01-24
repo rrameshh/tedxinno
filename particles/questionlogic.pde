@@ -3,8 +3,8 @@
 // -----------------------------------------------------------
 
 void initializeTedScores() {
-    String[] tedTypes = {"Tartan Scotty", "Robo-Scotty", "Artsy Scotty", "Buggy Scotty", "All-nighter Scotty", 
-                        "Plaid Scotty", "Startup Scotty", "Fence Scotty"};
+    String[] tedTypes = {"Robo-Scotty", "Artsy Scotty", "Buggy Scotty", "All-nighter Scotty", 
+                        "Startup Scotty", "Fence Scotty"};
     for (String type : tedTypes) {
       tedScores.put(type, 0.0);
     }
@@ -31,7 +31,6 @@ void initializeTedScores() {
       flock.boids.remove(0);  // Remove oldest boids
     }
     
-    // spawnParticlesInMask(800);
   }
 
   void spawnParticlesInMask(int count) {
@@ -129,9 +128,6 @@ void initializeTedScores() {
     }
   }
 
-
-
-  
   void scoreInteraction() {
     boolean leftSide = handPos.x < width/2;
     
@@ -144,65 +140,79 @@ void initializeTedScores() {
     float avgSpeed = (speedSamples > 0) ? totalSpeed / speedSamples : 0;
     boolean fastMovement = avgSpeed > 3;
     
-    // Question-specific scoring
+    // Question-specific scoring with new logic
     switch(currentQuestion) {
       case 0:  // CREATE or EXPLORE
-      if (leftSide && !fastMovement) {
-        tedScores.put("Artsy Scotty", tedScores.get("Artsy Scotty") + 0.1);
-        tedScores.put("Tartan Scotty", tedScores.get("Tartan Scotty") + 0.05);
-      }
-      if (leftSide && fastMovement) {
-        tedScores.put("Startup Scotty", tedScores.get("Startup Scotty") + 0.1);
-        tedScores.put("Fence Scotty", tedScores.get("Fence Scotty") + 0.05);
-      }
-      if (!leftSide && !fastMovement) {
-        tedScores.put("Robo-Scotty", tedScores.get("Robo-Scotty") + 0.1);
-        tedScores.put("All-nighter Scotty", tedScores.get("All-nighter Scotty") + 0.05);
-      }
-      if (!leftSide && fastMovement) {
-        tedScores.put("Buggy Scotty", tedScores.get("Buggy Scotty") + 0.1);
-        tedScores.put("Tartan Scotty", tedScores.get("Tartan Scotty") + 0.05);
-      }
-      break;
-      
-    case 1:  // CHAOS or ORDER
-      if (leftSide) {
-        tedScores.put("Fence Scotty", tedScores.get("Fence Scotty") + 0.1);
-        tedScores.put("Startup Scotty", tedScores.get("Startup Scotty") + 0.05);
-      }
-      if (!leftSide) {
-        tedScores.put("Plaid Scotty", tedScores.get("Plaid Scotty") + 0.1);
-        tedScores.put("All-nighter Scotty", tedScores.get("All-nighter Scotty") + 0.05);
-      }
-      break;
-      
-    case 2:  // IMAGINE or ANALYZE
-      if (leftSide) {
-        tedScores.put("Tartan Scotty", tedScores.get("Tartan Scotty") + 0.1);
-        tedScores.put("Artsy Scotty", tedScores.get("Artsy Scotty") + 0.05);
-      }
-      if (!leftSide) {
-        tedScores.put("Robo-Scotty", tedScores.get("Robo-Scotty") + 0.1);
-        tedScores.put("Plaid Scotty", tedScores.get("Plaid Scotty") + 0.05);
-      }
-      break;
+        if (leftSide && !fastMovement) {
+          // Slow + CREATE = Artsy Scotty
+          tedScores.put("Artsy Scotty", tedScores.get("Artsy Scotty") + 0.1);
+        }
+        if (leftSide && fastMovement) {
+          // Fast + CREATE = Startup Scotty OR Buggy Scotty
+          tedScores.put("Startup Scotty", tedScores.get("Startup Scotty") + 0.05);
+          tedScores.put("Buggy Scotty", tedScores.get("Buggy Scotty") + 0.05);
+        }
+        if (!leftSide && !fastMovement) {
+          // Slow + EXPLORE = Robo-Scotty OR All-nighter Scotty
+          tedScores.put("Robo-Scotty", tedScores.get("Robo-Scotty") + 0.05);
+          tedScores.put("All-nighter Scotty", tedScores.get("All-nighter Scotty") + 0.05);
+        }
+        if (!leftSide && fastMovement) {
+          // Fast + EXPLORE = Fence Scotty
+          tedScores.put("Fence Scotty", tedScores.get("Fence Scotty") + 0.1);
+        }
+        break;
+        
+      case 1:  // CHAOS or ORDER
+        if (leftSide && !fastMovement) {
+          // Slow + CHAOS = Artsy Scotty OR All-nighter Scotty
+          tedScores.put("Artsy Scotty", tedScores.get("Artsy Scotty") + 0.05);
+          tedScores.put("All-nighter Scotty", tedScores.get("All-nighter Scotty") + 0.05);
+        }
+        if (leftSide && fastMovement) {
+          // Fast + CHAOS = Startup Scotty
+          tedScores.put("Startup Scotty", tedScores.get("Startup Scotty") + 0.1);
+        }
+        if (!leftSide && !fastMovement) {
+          // Slow + ORDER = Robo-Scotty
+          tedScores.put("Robo-Scotty", tedScores.get("Robo-Scotty") + 0.1);
+        }
+        if (!leftSide && fastMovement) {
+          // Fast + ORDER = Fence Scotty OR Buggy Scotty
+          tedScores.put("Fence Scotty", tedScores.get("Fence Scotty") + 0.05);
+          tedScores.put("Buggy Scotty", tedScores.get("Buggy Scotty") + 0.05);
+        }
+        break;
+        
+      case 2:  // IMAGINE or ANALYZE
+        if (leftSide && !fastMovement) {
+          // Slow + IMAGINE = Artsy Scotty OR All-nighter Scotty
+          tedScores.put("Artsy Scotty", tedScores.get("Artsy Scotty") + 0.05);
+          tedScores.put("All-nighter Scotty", tedScores.get("All-nighter Scotty") + 0.05);
+        }
+        if (leftSide && fastMovement) {
+          // Fast + IMAGINE = Fence Scotty OR Buggy Scotty
+          tedScores.put("Fence Scotty", tedScores.get("Fence Scotty") + 0.05);
+          tedScores.put("Buggy Scotty", tedScores.get("Buggy Scotty") + 0.05);
+        }
+        if (!leftSide && !fastMovement) {
+          // Slow + ANALYZE = Robo-Scotty
+          tedScores.put("Robo-Scotty", tedScores.get("Robo-Scotty") + 0.1);
+        }
+        if (!leftSide && fastMovement) {
+          // Fast + ANALYZE = Startup Scotty
+          tedScores.put("Startup Scotty", tedScores.get("Startup Scotty") + 0.1);
+        }
+        break;
     }
     
-    // Emotion modifiers
-    if (currentEmotion.equals("happy")) {
-      tedScores.put("Tartan Scotty", tedScores.get("Tartan Scotty") + 0.02);
-      tedScores.put("Buggy Scotty", tedScores.get("Buggy Scotty") + 0.02);
-    }
-    if (currentEmotion.equals("neutral") || currentEmotion.equals("sad")) {
-      tedScores.put("Robo-Scotty", tedScores.get("Robo-Scotty") + 0.02);
-    }
-  
+    // Track emotion counts (kept for result screen)
     if (!emotionCounts.containsKey(currentEmotion)) {
       emotionCounts.put(currentEmotion, 0);
     }
     emotionCounts.put(currentEmotion, emotionCounts.get(currentEmotion) + 1);
   }
-  
+
   void applyHandForce() {
     boolean leftSide = handPos.x < width/2;
     

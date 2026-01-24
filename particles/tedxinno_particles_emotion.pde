@@ -67,6 +67,10 @@ float cachedCenterX = 0;
 float cachedCenterY = 0;
 int noiseCacheFrame = 0;
 
+boolean hoveringStart = false;
+int startHoverTime = 0;
+int startHoverDuration = 2500; 
+
 
 // -----------------------------------------------------------
 // SETUP
@@ -101,7 +105,7 @@ void setup() {
   initializeEmotionScores();
   
   // Create initial boids
-  int numBoids = 3000;
+  int numBoids = 1500;
 
   for (int i = 0; i < numBoids; i++) {
     PVector pos;
@@ -156,6 +160,7 @@ void draw() {
     if (handDetected) {
       applyIdleHandForce();
       drawHandVisualization();
+      detectStartHover();
     }
   } else if (quizState.equals("QUESTION")) {
     if (flashAmount > 0) {
@@ -176,6 +181,57 @@ void draw() {
   }
   
   drawEmotionInfo();
+}
+
+void detectStartHover() {
+  float buttonY = height - 80;
+  float buttonWidth = 150;
+  float buttonHeight = 50;
+  
+  boolean isOverButton = (handPos.x > width/2 - buttonWidth/2 && 
+                          handPos.x < width/2 + buttonWidth/2 &&
+                          handPos.y > buttonY - buttonHeight/2 && 
+                          handPos.y < buttonY + buttonHeight/2);
+  
+  if (isOverButton) {
+    if (!hoveringStart) {
+      hoveringStart = true;
+      startHoverTime = millis();
+    }
+    
+    int hoverTime = millis() - startHoverTime;
+    
+    if (hoverTime < startHoverDuration) {
+      float progress = hoverTime / float(startHoverDuration);
+      
+      pushStyle();
+      fill(currentPalette[0], 150);
+      noStroke();
+      
+      // Draw from LEFT to RIGHT
+      rectMode(CORNER);
+      float barWidth = buttonWidth * progress;
+      float barX = width/2 - buttonWidth/2;  // Start from left edge
+      
+      rect(barX, buttonY - buttonHeight/2, barWidth, buttonHeight, 25);
+      
+
+      
+      popStyle();
+    } else {
+      // START THE QUIZ!
+      quizState = "QUESTION";
+      currentQuestion = 0;
+      createQuestionMask(currentQuestion);
+      leftSideTime = 0;
+      rightSideTime = 0;
+      totalSpeed = 0;
+      speedSamples = 0;
+      hoveringStart = false;
+    }
+  } else {
+    hoveringStart = false;
+  }
 }
 
 void drawQuestionText() {

@@ -6,6 +6,11 @@ void setupEmotionPalettes() {
     emotionPalettes.put("happy", new color[] {
       color(255, 223, 0), color(255, 179, 0), color(255, 105, 180),
       color(255, 140, 0), color(255, 215, 0)
+      // color(255, 255, 200), // LIGHT yellow (center - like lavender role)
+      // color(255, 200, 0),   // Golden
+      // color(255, 140, 0),   // Orange
+      // color(255, 105, 180), // Hot pink (transition)
+      // color(255, 20, 147)   // DEEP pink (edge)
     });
     
     emotionPalettes.put("sad", new color[] {
@@ -16,6 +21,12 @@ void setupEmotionPalettes() {
     emotionPalettes.put("angry", new color[] {
       color(220, 20, 60), color(255, 69, 0), color(178, 34, 34),
       color(255, 0, 0), color(139, 0, 0)
+
+      // color(255, 200, 200), // LIGHT pink (center - softer start)
+      // color(255, 100, 100), // Medium pink
+      // color(255, 69, 0),    // Red-orange
+      // color(178, 34, 34),   // Dark red
+      // color(80, 0, 0)       // VERY dark red (edge - dramatic!)
     });
     
     emotionPalettes.put("surprised", new color[] {
@@ -35,7 +46,15 @@ void setupEmotionPalettes() {
     
     emotionPalettes.put("neutral", new color[] {
       color(204, 204, 255), color(254, 127, 0), color(203, 17, 0),
-      color(0, 160, 193), color(237, 159, 61)
+      color(0, 160, 193), 
+      color(237, 159, 61)
+      // color(147, 112, 219)
+      // color(46, 204, 113) 
+      // color(147, 112, 219)  // purple
+
+
+
+
     });
   }
   

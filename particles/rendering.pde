@@ -3,27 +3,55 @@
 // -----------------------------------------------------------
 
 void drawIdleScreen() {
-    // TEDxCMU text is already filled with particles (from setup)
-    // Let people play with ALL the particle behaviors at once
-    
-    fill(255);
-    textSize(48);
-    textAlign(CENTER, TOP);
-    text("TEDxCMU", width/2, 30);
-    
-    textSize(28);
-    fill(255, 200);
-    text("Move your hand to explore", width/2, 70);
-    text("Press SPACE when ready to discover your Scotty", width/2, height - 40);
-    
-    // Show what behavior is active based on hand position
-    if (handDetected) {
-      String currentBehavior = getIdleBehavior();
-      textSize(24);
-      fill(currentPalette[0]);
-      text(currentBehavior, handPos.x, handPos.y - 30);
+  fill(255);
+  textSize(48);
+  textAlign(CENTER, TOP);
+  text("TEDxCMU", width/2, 30);
+  
+  textSize(28);
+  fill(255, 200);
+  text("Move your hand to create rings", width/2, 70);
+  
+  // TINY CUTE button at bottom
+  float buttonY = height - 80;
+  float buttonWidth = 150;   // Was 300 - now half size!
+  float buttonHeight = 50;   // Was 80 - now smaller!
+  
+  // Check if hand is hovering over button
+  boolean hovering = false;
+  if (handDetected) {
+    if (handPos.x > width/2 - buttonWidth/2 && 
+        handPos.x < width/2 + buttonWidth/2 &&
+        handPos.y > buttonY - buttonHeight/2 && 
+        handPos.y < buttonY + buttonHeight/2) {
+      hovering = true;
     }
   }
+  
+
+  pushStyle();
+  if (hovering) {
+    fill(currentPalette[0], 150);
+    stroke(currentPalette[0]);
+    strokeWeight(2);
+  } else {
+    fill(255, 80);
+    stroke(255, 120);
+    strokeWeight(2);
+  }
+  rectMode(CENTER);
+  rect(width/2, buttonY, buttonWidth, buttonHeight, 25);  
+  
+
+  fill(255);
+  textSize(24); 
+  textAlign(CENTER, CENTER);
+  text("START", width/2, buttonY); 
+  
+  popStyle();
+  rectMode(CORNER);
+}
+
   void drawQuestion() {
     fill(255);
     textSize(32);
@@ -283,9 +311,9 @@ void drawIdleScreen() {
   }
 
   String getScottyDescription(String scottyType) {
-    if (scottyType.equals("Tartan Scotty")) {
-      return "Optimistic, spirited, and proud of CMU traditions";
-    } else if (scottyType.equals("Robo-Scotty")) {
+    // if (scottyType.equals("Tartan Scotty")) {
+    //   return "Optimistic, spirited, and proud of CMU traditions";
+    if (scottyType.equals("Robo-Scotty")) {
       return "Analytical, tech-focused, and methodical";
     } else if (scottyType.equals("Artsy Scotty")) {
       return "Creative, expressive, and bold in your vision";
@@ -293,12 +321,12 @@ void drawIdleScreen() {
       return "Social, collaborative, and team-oriented";
     } else if (scottyType.equals("All-nighter Scotty")) {
       return "Resilient, supportive, and always there when needed";
-    } else if (scottyType.equals("Plaid Scotty")) {
-      return "Structured, classic, and detail-oriented";
+    // } else if (scottyType.equals("Plaid Scotty")) {
+    //   return "Structured, classic, and detail-oriented";
     } else if (scottyType.equals("Startup Scotty")) {
       return "Entrepreneurial, innovative, and fast-moving";
     } else if (scottyType.equals("Fence Scotty")) {
-      return "Bold and unafraid to make your mark";
+      return "Classic and unafraid to make your mark";
     }
     return "";
   }
@@ -330,84 +358,21 @@ void drawIdleScreen() {
     text("Boids: " + flock.boids.size(), 10, 70);
   }
 
-
-  
-  String getIdleBehavior() {
-    // Divide screen into zones, each with different behavior
-    float x = handPos.x;
-    float y = handPos.y;
-    
-    if (x < width/3) {
-      return "CREATE - Orbit";
-    } else if (x < 2*width/3) {
-      if (y < height/2) {
-        return "CHAOS - Swirl";
-      } else {
-        return "IMAGINE - Flow";
-      }
-    } else {
-      if (y < height/2) {
-        return "ORDER - Grid";
-      } else {
-        return "ANALYZE - Rings";
-      }
-    }
-  }
-  
   void applyIdleHandForce() {
-    // Apply different forces based on hand position
-    float x = handPos.x;
-    float y = handPos.y;
+    // if (frameCount % 2 != 0) return;  // Performance
     
     for (Boid b : flock.boids) {
       if (isInsideX(b.position)) continue;
       float d = PVector.dist(b.position, handPos);
-      if (d > 200) continue;
+      if (d > 120) continue;  // ← CHANGE: 200 to 120 (tighter!)
       
-      if (x < width/3) {
-        // CREATE zone - orbital
-        PVector toHand = PVector.sub(handPos, b.position);
-        float angle = toHand.heading() + HALF_PI;
-        PVector orbit = new PVector(cos(angle), sin(angle));
-        orbit.mult(0.2);
-        b.acceleration.add(orbit);
-      } else if (x < 2*width/3) {
-        if (y < height/2) {
-          // CHAOS zone - swirl
-          PVector toHand = PVector.sub(handPos, b.position);
-          float angle = toHand.heading() + HALF_PI;
-          PVector swirl = new PVector(cos(angle), sin(angle));
-          swirl.mult(0.15);
-          b.acceleration.add(swirl);
-        } else {
-          // IMAGINE zone - flow
-          float angle = noise(b.position.x * 0.01, b.position.y * 0.01, frameCount * 0.01) * TWO_PI * 2;
-          PVector flow = new PVector(cos(angle), sin(angle));
-          flow.mult(0.25);
-          b.acceleration.add(flow);
-        }
-      } else {
-        if (y < height/2) {
-          // ORDER zone - grid
-          float gridSize = 30;
-          float targetX = round(b.position.x / gridSize) * gridSize;
-          float targetY = round(b.position.y / gridSize) * gridSize;
-          PVector target = new PVector(targetX, targetY);
-          PVector toGrid = PVector.sub(target, b.position);
-          toGrid.mult(0.05);
-          b.acceleration.add(toGrid);
-        } else {
-          // ANALYZE zone - rings
-          float radius = 40;
-          PVector toHand = PVector.sub(handPos, b.position);
-          float currentDist = toHand.mag();
-          float targetDist = round(currentDist / radius) * radius;
-          toHand.normalize();
-          toHand.mult(targetDist - currentDist);
-          toHand.mult(0.1);
-          b.acceleration.add(toHand);
-        }
-      }
+      float radius = 40;
+      PVector toHand = PVector.sub(handPos, b.position);
+      float currentDist = toHand.mag();
+      float targetDist = round(currentDist / radius) * radius;
+      toHand.normalize();
+      toHand.mult(targetDist - currentDist);
+      toHand.mult(0.1);
+      b.acceleration.add(toHand);
     }
   }
-  
