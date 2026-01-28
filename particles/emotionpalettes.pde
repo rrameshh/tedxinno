@@ -47,10 +47,10 @@ void setupEmotionPalettes() {
     emotionPalettes.put("neutral", new color[] {
       color(204, 204, 255), color(254, 127, 0), color(203, 17, 0),
       color(0, 160, 193), 
-      color(237, 159, 61)
+      // color(237, 159, 61)
       // color(147, 112, 219)
       // color(46, 204, 113) 
-      // color(147, 112, 219)  // purple
+      color(147, 112, 219)  // purple
 
 
 

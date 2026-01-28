@@ -97,7 +97,7 @@ void setup() {
   
   setupEmotionPalettes();
   
-  updateTargetPalette("neutral");
+  updateTargetPalette("sad");
   for (int i = 0; i < 5; i++) {
     currentPalette[i] = targetPalette[i];
   }
