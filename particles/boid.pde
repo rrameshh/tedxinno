@@ -91,6 +91,35 @@ class Boid {
       popMatrix();
     }
 
+    // color calculateColor() {
+    //   // Use cached center values from main sketch
+    //   float nx = position.x * 0.01;
+    //   float ny = position.y * 0.01;
+    //   float time = millis() * 0.0005;
+    //   float noiseOffset = map(noise(nx, ny, time), 0, 1, -30, 30);
+      
+    //   float d = dist(position.x, position.y, cachedCenterX + noiseOffset, cachedCenterY + noiseOffset);
+    //   float t = constrain(map(d, 0, 200, 0, 1), 0, 1);
+      
+    //   color baseCol;
+    //   if (t < 0.25) baseCol = lerpColor(currentPalette[0], currentPalette[1], t / 0.25);
+    //   else if (t < 0.5) baseCol = lerpColor(currentPalette[1], currentPalette[2], (t - 0.25)/0.25);
+    //   else if (t < 0.75) baseCol = lerpColor(currentPalette[2], currentPalette[3], (t - 0.5)/0.25);
+    //   else baseCol = lerpColor(currentPalette[3], currentPalette[4], (t - 0.75)/0.25);
+      
+    //   float brightness = map(maskDepth(position), 0, 1, 180, 255);
+    //   color outsideCol = color(
+    //     red(baseCol) * brightness / 255.0,
+    //     green(baseCol) * brightness / 255.0,
+    //     blue(baseCol) * brightness / 255.0
+    //   );
+      
+    //   color finalCol = lerpColor(outsideCol, color(255), maskDepth(position));
+      
+    //   if (!isInsideX(position)) finalCol = lerpColor(finalCol, flashColor, flashAmount);
+      
+    //   return finalCol;
+    // }
     color calculateColor() {
       // Use cached center values from main sketch
       float nx = position.x * 0.01;
@@ -99,7 +128,10 @@ class Boid {
       float noiseOffset = map(noise(nx, ny, time), 0, 1, -30, 30);
       
       float d = dist(position.x, position.y, cachedCenterX + noiseOffset, cachedCenterY + noiseOffset);
-      float t = constrain(map(d, 0, 200, 0, 1), 0, 1);
+      
+      // CHANGED: Increase gradient range to cover whole screen
+      float maxDist = width * 0.6;  // 60% of screen width
+      float t = constrain(map(d, 0, maxDist, 0, 1), 0, 1);
       
       color baseCol;
       if (t < 0.25) baseCol = lerpColor(currentPalette[0], currentPalette[1], t / 0.25);
@@ -120,7 +152,8 @@ class Boid {
       
       return finalCol;
     }
-    
+
+
     void borders() {
       if (position.x < -r) position.x = width + r;
       if (position.y < -r) position.y = height + r;
